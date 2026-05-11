@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!--
+    관리자 대시보드 스캐폴드.
+
+    다음 단계에서 구현:
+    1. 응답 수 카드 (총계, 오늘/이번주)
+    2. 일별 응답 추이 (라인 차트)
+    3. 기술분류 분포 (가로 막대)
+    4. 연구기간 분포 (세로 막대)
+    5. 성과물 유형 분포 (가로 막대)
+    6. 제안자 소속 분포 (도넛)
+    7. 키워드 워드클라우드 또는 상위 막대
+    8. 내보내기 버튼 (Excel, Word)
+    9. 응답 목록 테이블
+
+    데이터 흐름:
+    - fetch('/admin/statistics') → JSON
+    - Plotly.newPlot('chart-id', data, layout)
+-->
+
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">통계 대시보드</h2>
+        <div class="flex gap-2">
+            <a href="/admin/export/excel"
+               class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md
+                      hover:bg-green-700 transition-colors">
+                Excel 내보내기
+            </a>
+            <a href="/admin/export/word"
+               class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md
+                      hover:bg-blue-700 transition-colors">
+                Word 보고서
+            </a>
+            <form action="/admin/logout" method="post" class="inline">
+                <button type="submit"
+                        class="px-4 py-2 border border-gray-300 text-gray-700 text-sm
+                               rounded-md hover:bg-gray-50">
+                    로그아웃
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-2">총 응답 수</p>
+        <p class="text-3xl font-bold" id="total-count">—</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 class="font-semibold mb-4">기술 분류 분포</h3>
+            <div id="chart-tech-categories" style="height: 300px;"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 class="font-semibold mb-4">연구기간 분포</h3>
+            <div id="chart-research-periods" style="height: 300px;"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 class="font-semibold mb-4">성과물 유형 분포</h3>
+            <div id="chart-output-types" style="height: 300px;"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 class="font-semibold mb-4">제안자 소속 분포</h3>
+            <div id="chart-organizations" style="height: 300px;"></div>
+        </div>
+    </div>
+
+    <p class="text-sm text-gray-500 italic">
+        [다음 단계에서 Plotly 차트 렌더링 JS 및 응답 목록 테이블이 추가됩니다.]
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// TODO: 다음 단계에서 구현
+// fetch('/admin/statistics')
+//   .then(r => r.json())
+//   .then(data => {
+//     document.getElementById('total-count').textContent = data.total_responses;
+//     Plotly.newPlot('chart-tech-categories', [...], {...});
+//     ...
+//   });
+</script>
+{% endblock %}
