@@ -1,50 +1,378 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!--
-    설문 폼 페이지 스캐폴드.
-
-    다음 단계에서 PDF 양식의 모든 필드를 다음 구조로 구현:
-
-    1. 안내 문구 + 마감일 표시
-    2. 개인정보 수집 동의 체크박스 (필수)
-    3. 과제 정보 (project_title, keywords)
-    4. 기술 분류 (4개 + 기타 체크박스, 최소 1개 필수)
-    5. 기술 개요 / 필요성 / 연구내용 / 최종 성과물 (textarea)
-    6. 기대 및 파급효과 (경제사회적, 과학기술적)
-    7. 연구기간 (1~7년 라디오)
-    8. 제안자 인적사항 (이름, 소속, 직위, 연락처, 이메일)
-    9. 성과물 유형 (6종 체크박스, 다중 선택)
-    10. 제출 버튼
-
-    스타일: Tailwind 유틸리티 클래스로 KICT 보고서 양식과 유사한 톤 유지
-    검증: HTML5 native + JS form.js로 보강 + 서버 측 Pydantic
--->
-
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
     <h2 class="text-2xl font-bold mb-2">기술 수요 제안 양식</h2>
     {% if survey_deadline %}
-    <p class="text-sm text-orange-600 mb-6">
+    <p class="text-sm text-orange-600 mb-2">
         ※ 제출 마감일: {{ survey_deadline }}
     </p>
     {% endif %}
 
-    <p class="text-gray-700 mb-6 leading-relaxed">
-        본 수요조사는 KICT가 추진 중인 「차세대 모듈러 건축 핵심기술 개발 기획연구」의
-        기술 수요 발굴을 위해 진행됩니다. 제안하신 기술은 후속 R&D 과제 기획에
-        활용될 수 있습니다.
+    <p class="text-gray-700 mb-6 leading-relaxed text-sm">
+        본 수요조사는 한국건설기술연구원(KICT) OSC그룹에서 추진 중인
+        「차세대 모듈러 건축 핵심기술 개발 기획연구」의 기술 수요 발굴을 위해 진행됩니다.
+        제안하신 기술은 후속 R&amp;D 과제 기획 및 정부 R&amp;D 예산 편성 자료로 활용될 수 있습니다.
     </p>
 
-    <form action="/submit" method="post" class="space-y-8">
-        <p class="text-gray-500 italic">
-            [폼 필드는 다음 단계에서 구현됩니다.]
-        </p>
+    {% if global_error %}
+    <div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+        <strong>제출 오류:</strong> {{ global_error }}
+    </div>
+    {% endif %}
 
-        <button type="submit"
-                class="px-6 py-3 bg-blue-600 text-white font-medium rounded-md
-                       hover:bg-blue-700 transition-colors">
-            제출하기
-        </button>
+    <form action="/submit" method="post" class="space-y-10" id="survey-form" novalidate>
+
+        <!-- 0. 개인정보 수집 및 이용 동의 -->
+        <section class="border-l-4 border-gray-300 pl-5 py-2 bg-gray-50 rounded-r-md">
+            <h3 class="font-semibold text-gray-800 mb-2">개인정보 수집·이용 동의</h3>
+            <div class="text-xs text-gray-600 leading-relaxed space-y-1 mb-3">
+                <p>• 수집 항목: 성명, 소속기관, 직위, 연락처, 이메일</p>
+                <p>• 수집 목적: 수요조사 응답 식별 및 후속 협의를 위한 연락</p>
+                <p>• 보유 기간: 수요조사 종료 후 1년 또는 본인 요청 시 즉시 파기</p>
+                <p>• 동의 거부 권리가 있으며, 거부 시 본 수요조사 참여가 제한됩니다.</p>
+            </div>
+            <label class="inline-flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" name="privacy_consent" value="true" required
+                       {% if old.privacy_consent %}checked{% endif %}
+                       class="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded">
+                <span class="text-sm">
+                    위 개인정보 수집·이용에 동의합니다.
+                    <span class="text-red-600">*</span>
+                </span>
+            </label>
+            {% if errors.privacy_consent %}
+            <p class="text-xs text-red-600 mt-1">{{ errors.privacy_consent }}</p>
+            {% endif %}
+        </section>
+
+        <!-- 1. 과제명 -->
+        <section>
+            <label for="project_title" class="form-label">
+                1. 과제명(기술명) <span class="required">*</span>
+            </label>
+            <input type="text" id="project_title" name="project_title" required
+                   maxlength="500"
+                   value="{{ old.project_title or '' }}"
+                   placeholder="예) 접이식 모듈러 핵심기술 고도화"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md
+                          focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% if errors.project_title %}
+            <p class="text-xs text-red-600 mt-1">{{ errors.project_title }}</p>
+            {% endif %}
+        </section>
+
+        <!-- 2. 기술 분류 -->
+        <section>
+            <p class="form-label">
+                2. 기술 분류 <span class="required">*</span>
+                <span class="text-xs font-normal text-gray-500 ml-2">(해당하는 모든 항목 체크)</span>
+            </p>
+            <div class="space-y-3">
+                <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                    <input type="checkbox" name="tech_cat_rc_competitive" value="true"
+                           {% if old.tech_cat_rc_competitive %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <div class="text-sm">
+                        <div class="font-medium">RC 동등 이상 가격·성능 경쟁력 확보</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            자동화, 표준화, 서플라이 체인, DfMA, 고속 접합, 고성능, 모듈러 코어 등
+                        </div>
+                    </div>
+                </label>
+
+                <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                    <input type="checkbox" name="tech_cat_zero_fatality" value="true"
+                           {% if old.tech_cat_zero_fatality %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <div class="text-sm">
+                        <div class="font-medium">사망사고 제로 지향</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            위험공정 무인화, AI 비전 기반 사고방지시스템, 양중 안전, 원터치 체결, 위험예측, 작업자 안전 등
+                        </div>
+                    </div>
+                </label>
+
+                <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                    <input type="checkbox" name="tech_cat_marketability" value="true"
+                           {% if old.tech_cat_marketability %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <div class="text-sm">
+                        <div class="font-medium">모듈러 건축 상품성 확보</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            고층 모듈러, 장경간, 모듈조합, 운반 및 양중기술, 중대형 평면, 외장·파사드, 가변형, 커스터마이징
+                        </div>
+                    </div>
+                </label>
+
+                <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                    <input type="checkbox" name="tech_cat_scaleup" value="true"
+                           {% if old.tech_cat_scaleup %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <div class="text-sm">
+                        <div class="font-medium">모듈러 건축산업 스케일업 기반조성</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            제도 및 기준, 인증, 해외진출, 해상운송, 인력양성, 교육프로그램, 용도 다양화
+                        </div>
+                    </div>
+                </label>
+
+                <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                    <input type="checkbox" name="tech_cat_other" value="true" id="tech_cat_other"
+                           {% if old.tech_cat_other %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <div class="text-sm flex-1">
+                        <div class="font-medium">기타</div>
+                        <input type="text" name="tech_cat_other_text" id="tech_cat_other_text"
+                               value="{{ old.tech_cat_other_text or '' }}"
+                               placeholder="기타 내용 입력"
+                               class="mt-2 w-full px-2 py-1 border border-gray-300 rounded text-sm
+                                      focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    </div>
+                </label>
+            </div>
+            {% if errors.tech_category %}
+            <p class="text-xs text-red-600 mt-2">{{ errors.tech_category }}</p>
+            {% endif %}
+        </section>
+
+        <!-- 3. 기술 개요 -->
+        <section>
+            <label for="tech_overview" class="form-label">
+                3. 기술 개요 (정의·개념) <span class="required">*</span>
+            </label>
+            <textarea id="tech_overview" name="tech_overview" required
+                      rows="4"
+                      placeholder="예) 기존 대비 1/3 수준 부피 축소하여 비축 후, 재난 발생 시 즉시 공급 가능한 접이식 모듈러 기술"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md
+                             focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old.tech_overview or '' }}</textarea>
+            {% if errors.tech_overview %}
+            <p class="text-xs text-red-600 mt-1">{{ errors.tech_overview }}</p>
+            {% endif %}
+        </section>
+
+        <!-- 4. 키워드 -->
+        <section>
+            <label for="keywords" class="form-label">
+                4. 키워드
+                <span class="text-xs font-normal text-gray-500 ml-2">(쉼표로 구분, 최대 10개)</span>
+            </label>
+            <input type="text" id="keywords" name="keywords"
+                   maxlength="500"
+                   value="{{ old.keywords or '' }}"
+                   placeholder="예) 재난재해, 비축, 접이식, 임시주거, 공급운영체계"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md
+                          focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </section>
+
+        <!-- 5. 기술 필요성 -->
+        <section>
+            <label for="tech_necessity" class="form-label">5. 기술 필요성</label>
+            <textarea id="tech_necessity" name="tech_necessity"
+                      rows="4"
+                      placeholder="예) 사회적 재난의 대형화로 임시주거 수요는 급증하고 있으나, 현행체계는 사전제작 및 비축이 어려워 공급지연 및 이재민의 장기적 사용 불편 초래"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md
+                             focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old.tech_necessity or '' }}</textarea>
+        </section>
+
+        <!-- 6. 연구내용 -->
+        <section>
+            <label for="research_content" class="form-label">
+                6. 연구내용
+                <span class="text-xs font-normal text-gray-500 ml-2">(각 줄에 하나씩 항목 기입)</span>
+            </label>
+            <textarea id="research_content" name="research_content"
+                      rows="5"
+                      placeholder="예)&#10;- 접이식 모듈러 핵심 주거성능 확보 위한 표준부재 개발&#10;- 접이식 모듈러 폴딩 구조시스템 개발&#10;- 접이식 모듈러 공급 운영체계 개발 및 실증"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md
+                             focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old.research_content or '' }}</textarea>
+        </section>
+
+        <!-- 7. 최종 성과물 -->
+        <section>
+            <label for="final_outcome" class="form-label">7. 최종 성과물</label>
+            <textarea id="final_outcome" name="final_outcome"
+                      rows="3"
+                      placeholder="예) 부피 1/3 축소, 90분 이내 설치 가능 접이식 모듈러 임시주거시스템"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md
+                             focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old.final_outcome or '' }}</textarea>
+        </section>
+
+        <!-- 8. 기대 및 파급효과 -->
+        <section>
+            <p class="form-label">8. 기대 및 파급효과</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="impact_socioeconomic" class="block text-sm font-medium text-gray-700 mb-1">
+                        경제·사회적 관점
+                    </label>
+                    <textarea id="impact_socioeconomic" name="impact_socioeconomic"
+                              rows="4"
+                              placeholder="예)&#10;- 재난 대응 비용 절감&#10;- 이재민 임시거주 환경 개선"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
+                                     focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old.impact_socioeconomic or '' }}</textarea>
+                </div>
+                <div>
+                    <label for="impact_scientific" class="block text-sm font-medium text-gray-700 mb-1">
+                        과학·기술적 관점
+                    </label>
+                    <textarea id="impact_scientific" name="impact_scientific"
+                              rows="4"
+                              placeholder="예)&#10;- 폴딩 구조 기술 확보&#10;- 모듈러 표준부재 라이브러리 구축"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
+                                     focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old.impact_scientific or '' }}</textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- 9. 연구기간 -->
+        <section>
+            <p class="form-label">9. 연구기간 <span class="required">*</span></p>
+            <div class="flex flex-wrap gap-2">
+                {% for n in range(1, 8) %}
+                <label class="cursor-pointer">
+                    <input type="radio" name="research_period_years" value="{{ n }}" required
+                           {% if old.research_period_years == n|string %}checked{% endif %}
+                           class="peer sr-only">
+                    <span class="inline-block px-4 py-2 border border-gray-300 rounded-md text-sm
+                                 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600
+                                 hover:bg-gray-50">
+                        {{ n }}년
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+            {% if errors.research_period_years %}
+            <p class="text-xs text-red-600 mt-1">{{ errors.research_period_years }}</p>
+            {% endif %}
+        </section>
+
+        <!-- 10. 제안자 인적사항 -->
+        <section>
+            <p class="form-label">10. 제안자 인적사항 <span class="required">*</span></p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="proposer_name" class="block text-sm font-medium text-gray-700 mb-1">
+                        성명 <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="proposer_name" name="proposer_name" required
+                           maxlength="100"
+                           value="{{ old.proposer_name or '' }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {% if errors.proposer_name %}
+                    <p class="text-xs text-red-600 mt-1">{{ errors.proposer_name }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="proposer_organization" class="block text-sm font-medium text-gray-700 mb-1">
+                        소속기관 <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="proposer_organization" name="proposer_organization" required
+                           maxlength="200"
+                           value="{{ old.proposer_organization or '' }}"
+                           placeholder="예) ○○대학교, ○○건설(주), ○○연구원"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {% if errors.proposer_organization %}
+                    <p class="text-xs text-red-600 mt-1">{{ errors.proposer_organization }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="proposer_position" class="block text-sm font-medium text-gray-700 mb-1">직위</label>
+                    <input type="text" id="proposer_position" name="proposer_position"
+                           maxlength="100"
+                           value="{{ old.proposer_position or '' }}"
+                           placeholder="예) 교수, 대표이사, 수석연구원"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="proposer_phone" class="block text-sm font-medium text-gray-700 mb-1">연락처</label>
+                    <input type="tel" id="proposer_phone" name="proposer_phone"
+                           maxlength="50"
+                           value="{{ old.proposer_phone or '' }}"
+                           placeholder="예) 010-0000-0000"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="proposer_email" class="block text-sm font-medium text-gray-700 mb-1">
+                        E-mail <span class="text-red-600">*</span>
+                    </label>
+                    <input type="email" id="proposer_email" name="proposer_email" required
+                           maxlength="200"
+                           value="{{ old.proposer_email or '' }}"
+                           placeholder="예) example@kict.re.kr"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {% if errors.proposer_email %}
+                    <p class="text-xs text-red-600 mt-1">{{ errors.proposer_email }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <!-- 11. 성과물 유형 -->
+        <section>
+            <p class="form-label">
+                11. 성과물 및 최종예상 결과물 유형 <span class="required">*</span>
+                <span class="text-xs font-normal text-gray-500 ml-2">(해당하는 모든 항목 체크)</span>
+            </p>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <label class="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 rounded hover:bg-gray-50">
+                    <input type="checkbox" name="output_type_system" value="true"
+                           {% if old.output_type_system %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 rounded">
+                    <span class="text-sm">시스템</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 rounded hover:bg-gray-50">
+                    <input type="checkbox" name="output_type_method" value="true"
+                           {% if old.output_type_method %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 rounded">
+                    <span class="text-sm">공법·기법</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 rounded hover:bg-gray-50">
+                    <input type="checkbox" name="output_type_material" value="true"
+                           {% if old.output_type_material %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 rounded">
+                    <span class="text-sm">재료·자재</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 rounded hover:bg-gray-50">
+                    <input type="checkbox" name="output_type_software" value="true"
+                           {% if old.output_type_software %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 rounded">
+                    <span class="text-sm">소프트웨어</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 rounded hover:bg-gray-50">
+                    <input type="checkbox" name="output_type_equipment" value="true"
+                           {% if old.output_type_equipment %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 rounded">
+                    <span class="text-sm">장비·장치</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 rounded hover:bg-gray-50">
+                    <input type="checkbox" name="output_type_standard" value="true"
+                           {% if old.output_type_standard %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 rounded">
+                    <span class="text-sm">기준·지침</span>
+                </label>
+            </div>
+            {% if errors.output_type %}
+            <p class="text-xs text-red-600 mt-2">{{ errors.output_type }}</p>
+            {% endif %}
+        </section>
+
+        <!-- 제출 -->
+        <div class="pt-6 border-t border-gray-200">
+            <button type="submit" id="submit-btn"
+                    class="w-full md:w-auto px-8 py-3 bg-blue-600 text-white font-medium rounded-md
+                           hover:bg-blue-700 transition-colors disabled:opacity-50">
+                제출하기
+            </button>
+            <p class="text-xs text-gray-500 mt-3">
+                * 표시 항목은 필수 입력입니다. 제출 후에는 수정이 불가하므로 신중히 작성해 주십시오.
+            </p>
+        </div>
     </form>
 </div>
 {% endblock %}

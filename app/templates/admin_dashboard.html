@@ -5,27 +5,9 @@
 {% endblock %}
 
 {% block content %}
-<!--
-    관리자 대시보드 스캐폴드.
-
-    다음 단계에서 구현:
-    1. 응답 수 카드 (총계, 오늘/이번주)
-    2. 일별 응답 추이 (라인 차트)
-    3. 기술분류 분포 (가로 막대)
-    4. 연구기간 분포 (세로 막대)
-    5. 성과물 유형 분포 (가로 막대)
-    6. 제안자 소속 분포 (도넛)
-    7. 키워드 워드클라우드 또는 상위 막대
-    8. 내보내기 버튼 (Excel, Word)
-    9. 응답 목록 테이블
-
-    데이터 흐름:
-    - fetch('/admin/statistics') → JSON
-    - Plotly.newPlot('chart-id', data, layout)
--->
-
 <div class="space-y-6">
-    <div class="flex justify-between items-center">
+    <!-- 상단: 타이틀 + 액션 버튼 -->
+    <div class="flex flex-wrap justify-between items-center gap-3">
         <h2 class="text-2xl font-bold">통계 대시보드</h2>
         <div class="flex gap-2">
             <a href="/admin/export/excel"
@@ -38,55 +20,223 @@
                       hover:bg-blue-700 transition-colors">
                 Word 보고서
             </a>
+            <button id="refresh-btn"
+                    class="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-md
+                           hover:bg-gray-50">
+                새로고침
+            </button>
             <form action="/admin/logout" method="post" class="inline">
                 <button type="submit"
-                        class="px-4 py-2 border border-gray-300 text-gray-700 text-sm
-                               rounded-md hover:bg-gray-50">
+                        class="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-md
+                               hover:bg-gray-50">
                     로그아웃
                 </button>
             </form>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <p class="text-sm text-gray-500 mb-2">총 응답 수</p>
-        <p class="text-3xl font-bold" id="total-count">—</p>
+    <!-- 총 응답 수 카드 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+            <p class="text-sm text-gray-500 mb-1">총 응답 수</p>
+            <p class="text-3xl font-bold" id="total-count">—</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+            <p class="text-sm text-gray-500 mb-1">최근 응답일</p>
+            <p class="text-lg font-medium" id="last-date">—</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-5">
+            <p class="text-sm text-gray-500 mb-1">고유 키워드 수</p>
+            <p class="text-3xl font-bold" id="keyword-count">—</p>
+        </div>
     </div>
 
+    <!-- 차트 그리드 -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 class="font-semibold mb-4">기술 분류 분포</h3>
-            <div id="chart-tech-categories" style="height: 300px;"></div>
+            <h3 class="font-semibold mb-4">일별 응답 추이</h3>
+            <div id="chart-daily" style="height: 280px;"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 class="font-semibold mb-4">기술 분류 분포 (중복 응답)</h3>
+            <div id="chart-tech-categories" style="height: 280px;"></div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-6">
             <h3 class="font-semibold mb-4">연구기간 분포</h3>
-            <div id="chart-research-periods" style="height: 300px;"></div>
+            <div id="chart-research-periods" style="height: 280px;"></div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 class="font-semibold mb-4">성과물 유형 분포</h3>
-            <div id="chart-output-types" style="height: 300px;"></div>
+            <h3 class="font-semibold mb-4">성과물 유형 분포 (중복 응답)</h3>
+            <div id="chart-output-types" style="height: 280px;"></div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 class="font-semibold mb-4">제안자 소속 분포</h3>
-            <div id="chart-organizations" style="height: 300px;"></div>
+            <h3 class="font-semibold mb-4">제안자 소속 분포 (산·학·연·관)</h3>
+            <div id="chart-organizations" style="height: 280px;"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 class="font-semibold mb-4">키워드 빈도 (상위 15)</h3>
+            <div id="chart-keywords" style="height: 280px;"></div>
         </div>
     </div>
 
-    <p class="text-sm text-gray-500 italic">
-        [다음 단계에서 Plotly 차트 렌더링 JS 및 응답 목록 테이블이 추가됩니다.]
-    </p>
+    <!-- 응답 목록 -->
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 class="font-semibold mb-4">최근 응답 목록</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 text-left text-xs text-gray-600 uppercase">
+                        <th class="py-2 pr-3">제출일시</th>
+                        <th class="py-2 pr-3">과제명</th>
+                        <th class="py-2 pr-3">제안자</th>
+                        <th class="py-2 pr-3">소속</th>
+                        <th class="py-2 pr-3">연구기간</th>
+                    </tr>
+                </thead>
+                <tbody id="responses-tbody">
+                    <tr><td colspan="5" class="py-4 text-gray-400 text-center">로딩 중…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// TODO: 다음 단계에서 구현
-// fetch('/admin/statistics')
-//   .then(r => r.json())
-//   .then(data => {
-//     document.getElementById('total-count').textContent = data.total_responses;
-//     Plotly.newPlot('chart-tech-categories', [...], {...});
-//     ...
-//   });
+const KICT_COLORS = {
+    primary: '#2563eb',
+    secondary: '#10b981',
+    accent: '#f59e0b',
+    palette: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b'],
+};
+
+const COMMON_LAYOUT = {
+    font: { family: 'Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif', size: 12 },
+    margin: { t: 20, r: 20, b: 50, l: 60 },
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+};
+const COMMON_CONFIG = { displayModeBar: false, responsive: true, locale: 'ko' };
+
+async function loadDashboard() {
+    let stats;
+    try {
+        const res = await fetch('/admin/statistics');
+        if (!res.ok) throw new Error('통계 API 호출 실패: ' + res.status);
+        stats = await res.json();
+    } catch (e) {
+        document.getElementById('total-count').textContent = '오류';
+        console.error(e);
+        return;
+    }
+
+    // 상단 요약
+    document.getElementById('total-count').textContent = stats.total_responses;
+    document.getElementById('keyword-count').textContent = stats.keywords_top.length;
+    const lastDaily = stats.daily_responses.slice(-1)[0];
+    document.getElementById('last-date').textContent = lastDaily ? lastDaily.date : '—';
+
+    // 1. 일별 추이
+    Plotly.newPlot('chart-daily', [{
+        x: stats.daily_responses.map(d => d.date),
+        y: stats.daily_responses.map(d => d.count),
+        type: 'scatter', mode: 'lines+markers',
+        line: { color: KICT_COLORS.primary, width: 2 },
+        marker: { size: 6 },
+    }], { ...COMMON_LAYOUT, xaxis: { title: '날짜' }, yaxis: { title: '응답 수', rangemode: 'tozero' } }, COMMON_CONFIG);
+
+    // 2. 기술 분류
+    Plotly.newPlot('chart-tech-categories', [{
+        x: stats.tech_categories.map(d => d.count),
+        y: stats.tech_categories.map(d => d.category),
+        type: 'bar', orientation: 'h',
+        marker: { color: KICT_COLORS.primary },
+        text: stats.tech_categories.map(d => d.count),
+        textposition: 'outside',
+    }], { ...COMMON_LAYOUT, margin: { t: 20, r: 40, b: 40, l: 140 }, xaxis: { title: '응답 수', rangemode: 'tozero' } }, COMMON_CONFIG);
+
+    // 3. 연구기간
+    Plotly.newPlot('chart-research-periods', [{
+        x: stats.research_periods.map(d => d.years + '년'),
+        y: stats.research_periods.map(d => d.count),
+        type: 'bar',
+        marker: { color: KICT_COLORS.secondary },
+        text: stats.research_periods.map(d => d.count),
+        textposition: 'outside',
+    }], { ...COMMON_LAYOUT, xaxis: { title: '연구기간' }, yaxis: { title: '응답 수', rangemode: 'tozero' } }, COMMON_CONFIG);
+
+    // 4. 성과물 유형
+    Plotly.newPlot('chart-output-types', [{
+        x: stats.output_types.map(d => d.count),
+        y: stats.output_types.map(d => d.output_type),
+        type: 'bar', orientation: 'h',
+        marker: { color: KICT_COLORS.accent },
+        text: stats.output_types.map(d => d.count),
+        textposition: 'outside',
+    }], { ...COMMON_LAYOUT, margin: { t: 20, r: 40, b: 40, l: 100 }, xaxis: { title: '응답 수', rangemode: 'tozero' } }, COMMON_CONFIG);
+
+    // 5. 소속 분포 (도넛)
+    Plotly.newPlot('chart-organizations', [{
+        labels: stats.organizations.map(d => d.sector),
+        values: stats.organizations.map(d => d.count),
+        type: 'pie', hole: 0.4,
+        marker: { colors: KICT_COLORS.palette },
+        textinfo: 'label+percent',
+    }], { ...COMMON_LAYOUT, showlegend: true }, COMMON_CONFIG);
+
+    // 6. 키워드 (상위 15)
+    const topKw = stats.keywords_top.slice(0, 15).reverse();
+    Plotly.newPlot('chart-keywords', [{
+        x: topKw.map(d => d.count),
+        y: topKw.map(d => d.keyword),
+        type: 'bar', orientation: 'h',
+        marker: { color: '#8b5cf6' },
+        text: topKw.map(d => d.count),
+        textposition: 'outside',
+    }], { ...COMMON_LAYOUT, margin: { t: 20, r: 40, b: 40, l: 120 }, xaxis: { title: '빈도', rangemode: 'tozero' } }, COMMON_CONFIG);
+
+    // 응답 목록
+    await loadResponseList();
+}
+
+async function loadResponseList() {
+    try {
+        const res = await fetch('/admin/responses?limit=50');
+        if (!res.ok) throw new Error('응답 목록 호출 실패');
+        const data = await res.json();
+        const tbody = document.getElementById('responses-tbody');
+
+        if (!data.items || data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-gray-400 text-center">응답이 없습니다.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.items.map(item => `
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 pr-3 text-xs text-gray-600">${formatDate(item.created_at)}</td>
+                <td class="py-2 pr-3 font-medium">${escapeHtml(item.project_title || '')}</td>
+                <td class="py-2 pr-3">${escapeHtml(item.proposer_name || '')}</td>
+                <td class="py-2 pr-3 text-gray-600">${escapeHtml(item.proposer_organization || '')}</td>
+                <td class="py-2 pr-3">${item.research_period_years || '—'}년</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadDashboard);
+loadDashboard();
 </script>
 {% endblock %}

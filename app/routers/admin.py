@@ -3,7 +3,7 @@
 - GET  /admin/login         : 관리자 로그인 폼
 - POST /admin/login         : 비밀번호 검증
 - POST /admin/logout        : 로그아웃
-- GET  /admin               : 통계 대시보드
+- GET  /admin               : 통계 대시보드 (HTML)
 - GET  /admin/statistics    : 집계 결과 JSON (Plotly용)
 - GET  /admin/responses     : 응답 목록 JSON
 """
@@ -15,6 +15,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.config import settings
+from app.database import get_pool
+from app.services import statistics
 
 router = APIRouter()
 
@@ -23,12 +25,11 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 # ──────────────────────────────────────────────────────────────
-# 인증 의존성
+# 인증
 # ──────────────────────────────────────────────────────────────
 
 
 def require_admin(request: Request) -> None:
-    """세션에 관리자 플래그가 없으면 401."""
     if not request.session.get("is_admin"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -37,17 +38,14 @@ def require_admin(request: Request) -> None:
         )
 
 
-# ──────────────────────────────────────────────────────────────
-# 인증 라우트
-# ──────────────────────────────────────────────────────────────
-
-
 @router.get("/login", response_class=HTMLResponse)
 async def login_form(request: Request):
+    if request.session.get("is_admin"):
+        return RedirectResponse(url="/admin", status_code=303)
     return templates.TemplateResponse(
         request=request,
         name="admin_login.html",
-        context={"error": None},
+        context={"error": None, "survey_title": settings.survey_title},
     )
 
 
@@ -59,7 +57,10 @@ async def login_submit(request: Request, password: str = Form(...)):
     return templates.TemplateResponse(
         request=request,
         name="admin_login.html",
-        context={"error": "비밀번호가 올바르지 않습니다."},
+        context={
+            "error": "비밀번호가 올바르지 않습니다.",
+            "survey_title": settings.survey_title,
+        },
         status_code=401,
     )
 
@@ -71,16 +72,12 @@ async def logout(request: Request):
 
 
 # ──────────────────────────────────────────────────────────────
-# 대시보드
+# 대시보드 페이지
 # ──────────────────────────────────────────────────────────────
 
 
 @router.get("", response_class=HTMLResponse)
 async def dashboard(request: Request, _: None = Depends(require_admin)):
-    """통계 대시보드 페이지.
-
-    데이터는 클라이언트에서 /admin/statistics를 fetch하여 Plotly로 렌더.
-    """
     return templates.TemplateResponse(
         request=request,
         name="admin_dashboard.html",
@@ -88,25 +85,81 @@ async def dashboard(request: Request, _: None = Depends(require_admin)):
     )
 
 
-@router.get("/statistics", response_class=JSONResponse)
-async def statistics(_: None = Depends(require_admin)) -> dict:
-    """집계 통계 JSON.
+# ──────────────────────────────────────────────────────────────
+# 통계 JSON API
+# ──────────────────────────────────────────────────────────────
 
-    구현 메모: services/statistics.py 의 aggregate_all() 호출.
-    """
-    # TODO: 다음 단계에서 구현
-    return {
-        "total_responses": 0,
-        "tech_categories": [],
-        "research_periods": [],
-        "output_types": [],
-        "organizations": [],
-        "keywords_top": [],
-    }
+
+@router.get("/statistics", response_class=JSONResponse)
+async def get_statistics(_: None = Depends(require_admin)) -> dict:
+    """모든 집계 결과를 한 번에 반환. Plotly가 직접 소비."""
+    return await statistics.aggregate_all()
+
+
+# ──────────────────────────────────────────────────────────────
+# 응답 목록
+# ──────────────────────────────────────────────────────────────
+
+
+_LIST_SQL = """
+    SELECT id, created_at, project_title, proposer_name,
+           proposer_organization, proposer_email,
+           research_period_years
+    FROM responses
+    ORDER BY created_at DESC
+    LIMIT %(limit)s OFFSET %(offset)s;
+"""
 
 
 @router.get("/responses", response_class=JSONResponse)
-async def list_responses(_: None = Depends(require_admin)) -> list:
+async def list_responses(
+    _: None = Depends(require_admin),
+    limit: int = 100,
+    offset: int = 0,
+) -> dict:
     """응답 목록 (관리자 확인용)."""
-    # TODO: 다음 단계에서 구현
-    return []
+    limit = max(1, min(500, int(limit)))
+    offset = max(0, int(offset))
+
+    pool = await get_pool()
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(_LIST_SQL, {"limit": limit, "offset": offset})
+            rows = await cur.fetchall()
+            cols = [d[0] for d in cur.description]
+
+    items = []
+    for row in rows:
+        item = dict(zip(cols, row))
+        item["id"] = str(item["id"])
+        item["created_at"] = item["created_at"].isoformat() if item["created_at"] else None
+        items.append(item)
+
+    return {"items": items, "limit": limit, "offset": offset}
+
+
+# ──────────────────────────────────────────────────────────────
+# 응답 상세
+# ──────────────────────────────────────────────────────────────
+
+
+@router.get("/responses/{response_id}", response_class=JSONResponse)
+async def get_response_detail(
+    response_id: str,
+    _: None = Depends(require_admin),
+) -> dict:
+    pool = await get_pool()
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT * FROM responses WHERE id = %s;", (response_id,))
+            row = await cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="응답을 찾을 수 없습니다.")
+            cols = [d[0] for d in cur.description]
+
+    item = dict(zip(cols, row))
+    item["id"] = str(item["id"])
+    for key in ("created_at", "updated_at"):
+        if item.get(key):
+            item[key] = item[key].isoformat()
+    return item
