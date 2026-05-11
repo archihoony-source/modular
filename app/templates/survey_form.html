@@ -66,13 +66,13 @@
         <section>
             <p class="form-label">
                 2. 기술 분류 <span class="required">*</span>
-                <span class="text-xs font-normal text-gray-500 ml-2">(해당하는 모든 항목 체크)</span>
+                <span class="text-xs font-normal text-gray-500 ml-2">(가장 부합하는 1개 항목 선택)</span>
             </p>
             <div class="space-y-3">
                 <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
-                    <input type="checkbox" name="tech_cat_rc_competitive" value="true"
-                           {% if old.tech_cat_rc_competitive %}checked{% endif %}
-                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <input type="radio" name="tech_category" value="rc_competitive" required
+                           {% if old.tech_category == 'rc_competitive' %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600">
                     <div class="text-sm">
                         <div class="font-medium">RC 동등 이상 가격·성능 경쟁력 확보</div>
                         <div class="text-xs text-gray-500 mt-1">
@@ -82,9 +82,9 @@
                 </label>
 
                 <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
-                    <input type="checkbox" name="tech_cat_zero_fatality" value="true"
-                           {% if old.tech_cat_zero_fatality %}checked{% endif %}
-                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <input type="radio" name="tech_category" value="zero_fatality"
+                           {% if old.tech_category == 'zero_fatality' %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600">
                     <div class="text-sm">
                         <div class="font-medium">사망사고 제로 지향</div>
                         <div class="text-xs text-gray-500 mt-1">
@@ -94,9 +94,9 @@
                 </label>
 
                 <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
-                    <input type="checkbox" name="tech_cat_marketability" value="true"
-                           {% if old.tech_cat_marketability %}checked{% endif %}
-                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <input type="radio" name="tech_category" value="marketability"
+                           {% if old.tech_category == 'marketability' %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600">
                     <div class="text-sm">
                         <div class="font-medium">모듈러 건축 상품성 확보</div>
                         <div class="text-xs text-gray-500 mt-1">
@@ -106,9 +106,9 @@
                 </label>
 
                 <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
-                    <input type="checkbox" name="tech_cat_scaleup" value="true"
-                           {% if old.tech_cat_scaleup %}checked{% endif %}
-                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <input type="radio" name="tech_category" value="scaleup"
+                           {% if old.tech_category == 'scaleup' %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600">
                     <div class="text-sm">
                         <div class="font-medium">모듈러 건축산업 스케일업 기반조성</div>
                         <div class="text-xs text-gray-500 mt-1">
@@ -118,9 +118,9 @@
                 </label>
 
                 <label class="flex items-start gap-3 cursor-pointer p-3 border border-gray-200 rounded-md hover:bg-gray-50">
-                    <input type="checkbox" name="tech_cat_other" value="true" id="tech_cat_other"
-                           {% if old.tech_cat_other %}checked{% endif %}
-                           class="mt-1 w-4 h-4 text-blue-600 rounded">
+                    <input type="radio" name="tech_category" value="other" id="tech_cat_other_radio"
+                           {% if old.tech_category == 'other' %}checked{% endif %}
+                           class="mt-1 w-4 h-4 text-blue-600">
                     <div class="text-sm flex-1">
                         <div class="font-medium">기타</div>
                         <input type="text" name="tech_cat_other_text" id="tech_cat_other_text"

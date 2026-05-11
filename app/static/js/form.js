@@ -8,13 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitBtn = document.getElementById('submit-btn');
 
     // ─────────────────────────────────────────────
-    // 기타 체크박스 ↔ 텍스트 입력 연동
+    // 기타 라디오 ↔ 텍스트 입력 연동
+    // 텍스트 입력 시 기타 라디오 자동 선택
     // ─────────────────────────────────────────────
-    const otherChk = document.getElementById('tech_cat_other');
+    const otherRadio = document.getElementById('tech_cat_other_radio');
     const otherTxt = document.getElementById('tech_cat_other_text');
-    if (otherChk && otherTxt) {
+    if (otherRadio && otherTxt) {
         otherTxt.addEventListener('input', () => {
-            if (otherTxt.value.trim() !== '') otherChk.checked = true;
+            if (otherTxt.value.trim() !== '') otherRadio.checked = true;
         });
     }
 
@@ -35,14 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', (e) => {
         const errors = [];
 
-        // 기술분류 최소 1개
-        const techCats = [
-            'tech_cat_rc_competitive', 'tech_cat_zero_fatality',
-            'tech_cat_marketability', 'tech_cat_scaleup', 'tech_cat_other',
-        ];
-        const techCatChecked = techCats.some(n => form.querySelector(`input[name="${n}"]`)?.checked);
-        if (!techCatChecked) {
-            errors.push('기술 분류를 1개 이상 선택해 주십시오.');
+        // 기술분류 라디오: 정확히 1개 선택 필수
+        // (HTML required 속성이 처리하지만 사용자 친화적 메시지를 위해 한 번 더)
+        const techCatSelected = form.querySelector('input[name="tech_category"]:checked');
+        if (!techCatSelected) {
+            errors.push('기술 분류 1개를 선택해 주십시오.');
         }
 
         // 성과물 유형 최소 1개
@@ -55,8 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
             errors.push('성과물 유형을 1개 이상 선택해 주십시오.');
         }
 
-        // 기타 체크 시 텍스트 필수
-        if (otherChk?.checked && !otherTxt?.value.trim()) {
+        // 기타 선택 시 텍스트 필수
+        if (otherRadio?.checked && !otherTxt?.value.trim()) {
             errors.push('"기타" 선택 시 내용을 입력해 주십시오.');
         }
 

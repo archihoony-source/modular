@@ -38,12 +38,24 @@ _BOOL_FIELDS = {
     "output_type_software", "output_type_equipment", "output_type_standard",
 }
 
+# 라디오 버튼 value → 해당하는 boolean 필드명 매핑
+# (DB 스키마는 5개 boolean 컬럼을 그대로 유지하므로, 라디오 선택값을
+#  해당 boolean 1개만 True로 설정하는 방식으로 호환성 보존)
+_TECH_CATEGORY_MAP = {
+    "rc_competitive": "tech_cat_rc_competitive",
+    "zero_fatality": "tech_cat_zero_fatality",
+    "marketability": "tech_cat_marketability",
+    "scaleup": "tech_cat_scaleup",
+    "other": "tech_cat_other",
+}
+
 
 def form_to_dict(form_data) -> dict:
     """FastAPI form data를 Pydantic이 받을 수 있는 dict로 변환.
 
     - 체크박스가 선택되지 않으면 form에 키 자체가 없음 → False로 보정
     - 'true' 문자열 → True
+    - tech_category 라디오 → 5개 boolean 중 1개만 True로 매핑
     """
     result: dict = {}
     for key, value in form_data.items():
@@ -57,6 +69,16 @@ def form_to_dict(form_data) -> dict:
     # 누락된 체크박스 = False로 보정
     for bf in _BOOL_FIELDS:
         result.setdefault(bf, False)
+
+    # tech_category 라디오 값 → 해당 boolean 필드만 True로 설정
+    # 원본 라디오 값은 보존(검증 실패 시 폼 재표시할 때 선택 상태 유지를 위해).
+    # Pydantic 모델은 알 수 없는 필드를 무시하므로 검증에는 영향 없음.
+    radio_value = result.get("tech_category")
+    if radio_value and radio_value in _TECH_CATEGORY_MAP:
+        # 우선 모든 tech_cat 필드를 False로 초기화 후, 선택된 1개만 True
+        for boolean_field in _TECH_CATEGORY_MAP.values():
+            result[boolean_field] = False
+        result[_TECH_CATEGORY_MAP[radio_value]] = True
 
     return result
 
